@@ -4,6 +4,7 @@ import Login from '../views/Login.vue'
 import Collection from '../views/Collection.vue'
 import CanDetail from '../views/CanDetail.vue'
 import AddCan from '../views/AddCan.vue'
+import Register from '../views/Register.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -35,6 +36,11 @@ const router = createRouter({
       name: 'add-can',
       component: AddCan,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: Register,
     }
   ]
 })
