@@ -2,21 +2,28 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 import os
+from dotenv import load_dotenv  # Add this
 
 from .database import get_db
 from .models import User
 
+# Load environment variables
+load_dotenv()  # Add this
+
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# OAuth2 scheme for token
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+# Use HTTPBearer instead of OAuth2PasswordBearer
+security = HTTPBearer()
 
 # JWT settings
 SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable not set!")  # Add this check
+    
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
@@ -40,7 +47,7 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)) -> User:
     """Get current user from JWT token"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -49,15 +56,32 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     
     try:
+        token = str(credentials.credentials)
+        print(f"DEBUG: Credentials received: {credentials}")  # Debug line
+        print(f"DEBUG: Received token: {token[:20]}...")  # Debug line
+        print(f"DEBUG: SECRET_KEY exists: {SECRET_KEY is not None}")  # Debug line
+        
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        print(f"DEBUG: Decoded payload: {payload}")  # Debug line
+        
+        user_id_str: str = payload.get("sub")
+        if user_id_str is None:
             raise credentials_exception
-    except JWTError:
+        user_id: int = int(user_id_str)  # Convert string back to int for database query
+        if user_id is None:
+            print("DEBUG: No 'sub' in payload")  # Debug line
+            raise credentials_exception
+            
+        print(f"DEBUG: Looking for user_id: {user_id}")  # Debug line
+        
+    except JWTError as e:
+        print(f"DEBUG: JWT Error: {str(e)}")  # Debug line
         raise credentials_exception
     
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
+        print(f"DEBUG: User {user_id} not found in database")  # Debug line
         raise credentials_exception
     
+    print(f"DEBUG: Successfully found user: {user.username}")  # Debug line
     return user
