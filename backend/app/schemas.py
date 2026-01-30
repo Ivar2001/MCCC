@@ -30,6 +30,7 @@ class CanCreate(BaseModel):
     flavor: str
     type: str
     year: int
+    origin: str
     condition: str = "Good"
     description: Optional[str] = None
 
@@ -46,3 +47,11 @@ class CanResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class CanUpdate(BaseModel):
+    flavor: Optional[str] = None
+    type: Optional[str] = None
+    year: Optional[int] = None
+    origin: Optional[str] = None
+    condition: Optional[str] = None
+    description: Optional[str] = None

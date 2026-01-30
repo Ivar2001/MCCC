@@ -5,6 +5,9 @@
             Register
         </h2>
         <form @submit.prevent="handleRegistration" class="space-y-4">
+            <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {{ error }}
+            </div>
             <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
                 Username
@@ -51,9 +54,10 @@
             </div>
             <button 
                 type="submit"
-                class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition"
+                :disabled="loading"
+                class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                Register
+                {{ loading ? 'Registering...' : 'Register' }}
             </button>
         </form>
         </div>
@@ -63,19 +67,39 @@
 <script setup>
     import { ref } from 'vue'
     import { useRouter } from 'vue-router'
+    import { useAuthStore } from '@/stores/auth'
 
     const router = useRouter()
+    const authStore = useAuthStore()
     const username = ref('')
     const password = ref('')
     const confirmPassword = ref('')
     const email = ref('')
+    const error = ref('')
+    const loading = ref(false)
 
-    const handleRegistration = () => {
+    const handleRegistration = async () => {
+        error.value = ''
+        
         if (password.value !== confirmPassword.value) {
-            alert("Passwords do not match!");
-            return;
+            error.value = "Passwords do not match!"
+            return
         }
-        router.push('/login')
+
+        if (!username.value || !email.value || !password.value) {
+            error.value = "All fields are required!"
+            return
+        }
+
+        try {
+            loading.value = true
+            await authStore.register(username.value, email.value, password.value)
+            router.push('/collection')
+        } catch (err) {
+            error.value = err.message || "Registration failed. Please try again."
+        } finally {
+            loading.value = false
+        }
     }
 
 </script>
