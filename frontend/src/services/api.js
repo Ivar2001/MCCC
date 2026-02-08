@@ -9,10 +9,15 @@ function getAuthHeader() {
 // Generic API request handler
 async function apiRequest(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`
+  
+  // Check if body is FormData
+  const isFormData = options.body instanceof FormData
+  
   const config = {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      // Only add Content-Type for JSON, not FormData
+      ...(!isFormData && { 'Content-Type': 'application/json' }),
       ...getAuthHeader(),
       ...options.headers,
     },
@@ -20,7 +25,6 @@ async function apiRequest(endpoint, options = {}) {
 
   const response = await fetch(url, config)
 
-  // Handle 401 Unauthorized - token expired or invalid
   if (response.status === 401) {
     localStorage.removeItem('access_token')
     window.location.href = '/login'
@@ -32,7 +36,6 @@ async function apiRequest(endpoint, options = {}) {
     throw new Error(error.detail || 'API request failed')
   }
 
-  // Handle 204 No Content (delete response)
   if (response.status === 204) {
     return null
   }
@@ -104,4 +107,13 @@ export const cansAPI = {
       body: formData,
     })
   },
+}
+
+// Helper to get image URL
+export function getImageUrl(imagePath) {
+  if (!imagePath) return null
+  // The backend stores full paths like "/app/uploads/can_1_20260120_123456.jpg"
+  // We need to convert to URL like "http://localhost:8000/uploads/can_1_20260120_123456.jpg"
+  const filename = imagePath.split('/').pop()
+  return `${API_BASE_URL}/uploads/${filename}`
 }

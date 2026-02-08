@@ -14,6 +14,16 @@
     </header>
 
     <div class="max-w-2xl mx-auto px-4 py-8">
+      <!-- Error Message -->
+      <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+        {{ error }}
+      </div>
+
+      <!-- Success Message -->
+      <div v-if="success" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+        Can added successfully!
+      </div>
+
       <div class="bg-white rounded-lg shadow-lg p-8">
         <form @submit.prevent="handleSubmit" class="space-y-6">
           
@@ -53,7 +63,7 @@
               Year *
             </label>
             <input 
-              v-model="formData.year"
+              v-model.number="formData.year"
               type="number"
               required
               min="1900"
@@ -65,10 +75,24 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Condition
+              Origin *
+            </label>
+            <input 
+              v-model="formData.origin"
+              type="text"
+              required
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              placeholder="e.g., USA, Japan, Limited Edition 2023"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Condition *
             </label>
             <select 
               v-model="formData.condition"
+              required
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
             >
               <option value="Mint">Mint</option>
@@ -83,20 +107,42 @@
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Image
             </label>
+            
+            <!-- Image Preview -->
+            <div v-if="imagePreview" class="mb-3">
+              <img 
+                :src="imagePreview"
+                alt="Preview"
+                class="w-full h-48 object-contain bg-gray-100 rounded-lg"
+              />
+              <button 
+                type="button"
+                @click="clearImage"
+                class="mt-2 text-sm text-red-600 hover:underline"
+              >
+                Remove image
+              </button>
+            </div>
+
+            <!-- File Input -->
             <input 
               type="file"
               accept="image/*"
-              @change="handleImageUpload"
+              @change="handleImageSelect"
+              ref="fileInput"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
             />
+            <p class="text-xs text-gray-500 mt-1">
+              Supported formats: JPG, PNG, GIF (max 5MB)
+            </p>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Notes
+              Description
             </label>
             <textarea 
-              v-model="formData.notes"
+              v-model="formData.description"
               rows="4"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
               placeholder="Any additional information about this can..."
@@ -106,14 +152,16 @@
           <div class="flex space-x-4">
             <button 
               type="submit"
-              class="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition"
+              :disabled="loading"
+              class="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Add to Collection
+              {{ loading ? 'Adding...' : 'Add to Collection' }}
             </button>
             <button 
               type="button"
               @click="goBack"
-              class="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition"
+              :disabled="loading"
+              class="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition disabled:opacity-50"
             >
               Cancel
             </button>
@@ -127,6 +175,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { cansAPI } from '@/services/api'
 
 const router = useRouter()
 
@@ -134,24 +183,87 @@ const formData = ref({
   flavor: '',
   type: '',
   year: new Date().getFullYear(),
+  origin: '',
   condition: 'Mint',
-  notes: '',
-  image: null
+  description: ''
 })
 
-const handleImageUpload = (event) => {
+const selectedImage = ref(null)
+const imagePreview = ref(null)
+const fileInput = ref(null)
+const loading = ref(false)
+const error = ref('')
+const success = ref(false)
+
+const handleImageSelect = (event) => {
   const file = event.target.files[0]
   if (file) {
-    formData.value.image = file
-    console.log('Image selected:', file.name)
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      error.value = 'Please select an image file'
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      error.value = 'Image must be smaller than 5MB'
+      return
+    }
+
+    selectedImage.value = file
+    
+    // Create preview
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      imagePreview.value = e.target.result
+    }
+    reader.readAsDataURL(file)
+    
+    error.value = ''
   }
 }
 
-const handleSubmit = () => {
-  // TODO: Send to backend API later
-  console.log('Form submitted:', formData.value)
-  alert('Can added successfully! (not really, backend not connected yet)')
-  router.push('/collection')
+const clearImage = () => {
+  selectedImage.value = null
+  imagePreview.value = null
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+}
+const handleSubmit = async () => {
+  loading.value = true
+  error.value = ''
+  success.value = false
+  
+  try {
+    // Create the can first
+    const newCan = await cansAPI.create({
+      flavor: formData.value.flavor,
+      type: formData.value.type,
+      year: formData.value.year,
+      origin: formData.value.origin,
+      condition: formData.value.condition,
+      description: formData.value.description || null
+    })
+    
+    // If image was selected, upload it
+    if (selectedImage.value) {
+      await cansAPI.uploadImage(newCan.id, selectedImage.value)
+    }
+    
+    success.value = true
+    
+    // Redirect to collection after short delay
+    setTimeout(() => {
+      router.push('/collection')
+    }, 1500)
+    
+  } catch (err) {
+    error.value = err.message || 'Failed to add can to collection'
+    console.error(err)
+  } finally {
+    loading.value = false
+  }
 }
 
 const goBack = () => {

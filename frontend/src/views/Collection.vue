@@ -174,14 +174,21 @@
           <!-- Collection Grid -->
           <div v-if="filteredCans.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             <div 
-              v-for="can in filteredCans" 
-              :key="can.id"
-              @click="goToCanDetail(can.id)"
-              class="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer overflow-hidden"
-            >
-              <div class="h-48 bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
-                <span class="text-white text-6xl">🥤</span>
-              </div>
+                v-for="can in filteredCans" 
+                :key="can.id"
+                @click="goToCanDetail(can.id)"
+                class="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer overflow-hidden"
+              >
+                <div class="h-48 bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center relative overflow-hidden">
+                  <img 
+                    v-if="can.image_path"
+                    :src="getImageUrl(can.image_path)"
+                    :alt="can.flavor"
+                    class="w-full h-full object-cover"
+                    @error="handleImageError"
+                  />
+                  <span v-else class="text-white text-6xl">🥤</span>
+                </div>
               <div class="p-4">
                 <h3 class="font-semibold text-lg text-gray-800">{{ can.flavor }}</h3>
                 <p class="text-sm text-gray-600">{{ can.type }}</p>
@@ -215,7 +222,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { cansAPI } from '@/services/api'
+import { cansAPI, getImageUrl } from '@/services/api'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -338,5 +345,10 @@ const goToCanDetail = (id) => {
 const handleLogout = () => {
   authStore.logout()
   router.push('/')
+}
+
+const handleImageError = (event) => {
+  // If image fails to load, hide it and show emoji fallback
+  event.target.style.display = 'none'
 }
 </script>
