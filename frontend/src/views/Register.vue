@@ -10,6 +10,18 @@
             </div>
             <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
+                Registration Code
+            </label>
+            <input 
+                v-model="registrationCode"
+                type="text"
+                required
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                placeholder="Enter registration code"
+            />
+            </div>
+            <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
                 Username
             </label>
             <input 
@@ -61,6 +73,9 @@
             </button>
         </form>
         </div>
+        <div v-if="success" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            Registration successful! Redirecting to login...
+        </div>
     </div>
 </template>
 
@@ -77,24 +92,35 @@
     const email = ref('')
     const error = ref('')
     const loading = ref(false)
+    const registrationCode = ref('')
+    const success = ref(false)
 
     const handleRegistration = async () => {
         error.value = ''
+        
+        if (!username.value || !email.value || !password.value || !registrationCode.value) {
+            error.value = "All fields are required!"
+            return
+        }
+        
+        if (password.value.length < 6) {
+            error.value = "Password must be at least 6 characters!"
+            return
+        }
         
         if (password.value !== confirmPassword.value) {
             error.value = "Passwords do not match!"
             return
         }
 
-        if (!username.value || !email.value || !password.value) {
-            error.value = "All fields are required!"
-            return
-        }
-
         try {
             loading.value = true
-            await authStore.register(username.value, email.value, password.value)
-            router.push('/collection')
+            await authStore.register(username.value, email.value, password.value, registrationCode.value)
+            success.value = true
+            
+            setTimeout(() => {
+            router.push('/login')
+            }, 1500)
         } catch (err) {
             error.value = err.message || "Registration failed. Please try again."
         } finally {

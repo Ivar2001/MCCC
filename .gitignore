@@ -23,3 +23,6 @@ dist/
 .idea/
 *.swp
 *.swo
+
+# scripts
+/backend/create_admin.py

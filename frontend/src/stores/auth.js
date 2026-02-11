@@ -12,11 +12,9 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    async register(username, email, password) {
+    async register(username, email, password, registrationCode) {
       try {
-        const user = await authAPI.register(username, email, password)
-        // Auto-login after registration
-        await this.login(username, password)
+        const user = await authAPI.register(username, email, password, registrationCode)
         return user
       } catch (error) {
         throw error
@@ -53,13 +51,17 @@ export const useAuthStore = defineStore('auth', {
 
     // Check if user is still authenticated on app load
     async checkAuth() {
-      if (this.token) {
+      if (!this.token) {
+        this.logout()
+      }
+      else {
         try {
           await this.fetchUser()
         } catch (error) {
           this.logout()
         }
       }
-    },
-  },
-})
+    }
+  }
+}
+)

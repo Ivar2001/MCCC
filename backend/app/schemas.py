@@ -7,6 +7,7 @@ class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
+    registration_code: str
 
 class UserResponse(BaseModel):
     id: int
