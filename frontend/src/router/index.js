@@ -1,9 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import Home from '../views/Home.vue'
 import Login from '../views/Login.vue'
 import Collection from '../views/Collection.vue'
 import CanDetail from '../views/CanDetail.vue'
 import AddCan from '../views/AddCan.vue'
+import Registration from '../views/Register.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -22,7 +24,7 @@ const router = createRouter({
       path: '/collection',
       name: 'collection',
       component: Collection,
-      meta: { requiresAuth: true } // We'll use this later for route guards
+      meta: { requiresAuth: true }
     },
     {
       path: '/can/:id',
@@ -35,13 +37,34 @@ const router = createRouter({
       name: 'add-can',
       component: AddCan,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: Registration,
+      meta: { requiresAuth: false }
     }
   ]
 })
 
-// TODO: Add navigation guard for authentication later
-// router.beforeEach((to, from, next) => {
-//   // Check if route requires auth and user is not authenticated
-// })
+// Navigation guard
+router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore()
+
+  // Check authentication status on first load
+  if (authStore.token && !authStore.user) {
+    await authStore.checkAuth()
+  }
+
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    // Redirect to login if trying to access protected route
+    next({ name: 'login', query: { redirect: to.fullPath } })
+  } else if (to.name === 'login' && authStore.isAuthenticated) {
+    // Redirect to collection if already logged in and trying to access login
+    next({ name: 'collection' })
+  } else {
+    next()
+  }
+})
 
 export default router
